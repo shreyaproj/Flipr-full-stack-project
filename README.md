@@ -57,8 +57,8 @@ The easiest way to run the application is using Docker.
 ### Steps
 1.  **Clone the Repository**
     ```bash
-    git clone <your-repo-url>
-    cd <your-repo-name>
+    git clone https://github.com/shreyaproj/Flipr-full-stack-project
+    cd https://github.com/shreyaproj/Flipr-full-stack-project
     ```
 
 2.  **Build and Run**
