@@ -6,8 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
 from django.core.mail import send_mail
 from django.conf import settings
-from django.utils import timezone  # <--- FIX 1: Added missing import
-
+from django.utils import timezone
 from .models import Project, Client, Contact, NewsletterSubscriber
 from .serializers import (
     UserSerializer, RegisterSerializer, ProjectSerializer,
@@ -19,24 +18,18 @@ User = get_user_model()
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_admin(request):
-    # Check if any admin exists
     admin_count = User.objects.filter(is_admin=True).count()
-    
-    # If no admin exists, allow registration (First time setup)
     if admin_count == 0:
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    # If admin exists, ONLY authenticated SUPERUSERS can create new admins
     if not request.user.is_authenticated or not request.user.is_superuser:
         return Response(
             {'error': 'Permission denied. Only existing superusers can create new admin accounts.'},
             status=status.HTTP_403_FORBIDDEN
         )
-    
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
@@ -48,9 +41,7 @@ def register_admin(request):
 def login_admin(request):
     username = request.data.get('username')
     password = request.data.get('password')
-    
     user = authenticate(username=username, password=password)
-    
     if user and user.is_admin:
         refresh = RefreshToken.for_user(user)
         serializer = UserSerializer(user)
@@ -59,20 +50,15 @@ def login_admin(request):
             'refresh': str(refresh),
             'access': str(refresh.access_token),
         })
-    
     return Response(
         {'error': 'Invalid credentials or not an admin'},
         status=status.HTTP_401_UNAUTHORIZED
     )
 
-# --- VIEWSETS ---
-
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
-    
     def get_permissions(self):
-        # Public: List/Retrieve. Admin: Create/Update/Delete
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsAuthenticated]
         else:
@@ -82,7 +68,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = ClientSerializer
-    
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             permission_classes = [IsAuthenticated]
@@ -93,23 +78,17 @@ class ClientViewSet(viewsets.ModelViewSet):
 class ContactViewSet(viewsets.ModelViewSet):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
-    
     def get_permissions(self):
         if self.action == 'create':
             permission_classes = [AllowAny]
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
-    
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
-        
-        # Send email notification only if data was saved
         if response.status_code == status.HTTP_201_CREATED:
             try:
-                # FIX 2: Safer access to settings and fallback email
                 admin_email = getattr(settings, 'ADMIN_EMAIL', 'admin@example.com')
-                
                 send_mail(
                     subject=f'New Contact: {request.data.get("subject", "No Subject")}',
                     message=f'Name: {request.data.get("name")}\n'
@@ -122,35 +101,27 @@ class ContactViewSet(viewsets.ModelViewSet):
                     fail_silently=True,
                 )
             except Exception as e:
-                print(f"Email sending failed: {e}") # Print error to console for debugging
+                print(f"Email sending failed: {e}")
                 pass
-        
         return response
 
 class NewsletterSubscriberViewSet(viewsets.ModelViewSet):
-    # FIX 3: Removed .filter(is_active=True) so Admin can see unsubscribed users too
     queryset = NewsletterSubscriber.objects.all()
     serializer_class = NewsletterSubscriberSerializer
-    
     def get_permissions(self):
-        if self.action in ['create', 'unsubscribe']: # Allow public to subscribe/unsubscribe
+        if self.action in ['create', 'unsubscribe']:
             permission_classes = [AllowAny]
         else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
-    
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
-        
         if not email:
             return Response({'email': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if already subscribed
         subscriber, created = NewsletterSubscriber.objects.get_or_create(
             email=email,
             defaults={'is_active': True}
         )
-        
         if not created:
             if subscriber.is_active:
                 return Response(
@@ -158,22 +129,17 @@ class NewsletterSubscriberViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             else:
-                # Reactivate user who previously unsubscribed
                 subscriber.is_active = True
                 subscriber.unsubscribed_at = None
                 subscriber.save()
-        
         return Response(
             {'message': 'Successfully subscribed to newsletter'},
             status=status.HTTP_201_CREATED
         )
-    
     @action(detail=True, methods=['post'])
     def unsubscribe(self, request, pk=None):
         subscriber = self.get_object()
         subscriber.is_active = False
-        # FIX 1: timezone is now imported correctly
         subscriber.unsubscribed_at = timezone.now()
         subscriber.save()
-        
         return Response({'message': 'Successfully unsubscribed'})

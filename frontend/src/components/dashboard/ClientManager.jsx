@@ -37,8 +37,8 @@ const ClientManager = () => {
     const data = new FormData();
     data.append('name', formData.name);
     data.append('description', formData.description);
-    data.append('designation', formData.designation); // Ensure backend model has this field
-    data.append('image', selectedFile, 'client.jpg'); // Backend expects 'image' or 'logo'? Check model.
+    data.append('designation', formData.designation);
+    data.append('image', selectedFile, 'client.jpg');
 
     setLoading(true);
     try {
@@ -74,23 +74,19 @@ const ClientManager = () => {
           </div>
           <textarea placeholder="Client Description / Testimonial" className="border p-2 rounded w-full" rows="2"
             value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} required />
-          
           <div>
              <label className="block text-sm font-medium mb-1">Client Photo</label>
              <input type="file" accept="image/*" onChange={handleFileSelect} />
              {selectedFile && <span className="text-green-600 text-sm ml-2">Image ready</span>}
           </div>
-
           <button type="submit" disabled={loading} className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50">
             {loading ? 'Saving...' : 'Add Client'}
           </button>
         </form>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {clients.map(c => (
           <div key={c.id} className="bg-white p-4 rounded shadow text-center relative group">
-            {/* Handle both 'image' and 'logo' field names depending on backend */}
             <img src={c.image || c.logo} alt={c.name} className="w-24 h-24 rounded-full mx-auto object-cover mb-3" />
             <h3 className="font-bold">{c.name}</h3>
             <p className="text-blue-600 text-sm">{c.designation}</p>
@@ -99,7 +95,6 @@ const ClientManager = () => {
           </div>
         ))}
       </div>
-
       {cropperOpen && <ImageCropperModal imageSrc={tempImage} onCancel={() => setCropperOpen(false)} onCropComplete={handleCropComplete} />}
     </div>
   );

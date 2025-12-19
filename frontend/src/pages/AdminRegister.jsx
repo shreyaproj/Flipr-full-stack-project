@@ -14,16 +14,12 @@ const AdminRegister = () => {
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
 
-  // Check if user is already logged in
   useEffect(() => {
     const token = localStorage.getItem('token');
-    
-    // If we have a token that is valid, redirect to dashboard
+
     if (authService.isAuthenticated()) {
       navigate('/admin/dashboard', { replace: true });
     } else if (token) {
-      // If we have a token but authService says it's invalid (or we are just on this page)
-      // Clear it so it doesn't cause 401 errors on the registration request
       localStorage.removeItem('token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
@@ -32,75 +28,68 @@ const AdminRegister = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
     }
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Corrected handleSubmit function
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
-      // FIX: Include confirm_password in the payload
-      // Note: Backend expects 'confirm_password' (snake_case), frontend state is 'confirmPassword' (camelCase)
       const registerData = {
         username: formData.username,
         email: formData.email,
         password: formData.password,
         confirm_password: formData.confirmPassword 
       };
-      
+
       const response = await authService.register(registerData);
-      
-      
-      // Auto login after successful registration
+
       const loginResponse = await authService.login({
         username: formData.username,
         password: formData.password,
       });
-      
-      // Store tokens and user data
+
       localStorage.setItem('token', loginResponse.data.access);
       localStorage.setItem('refresh_token', loginResponse.data.refresh);
       localStorage.setItem('user', JSON.stringify(loginResponse.data.user));
-      
+
       toast.success('Registration successful! You are now logged in.');
       navigate('/admin/dashboard', { replace: true });
-      
+
     } catch (error) {
       console.error('Registration error:', error);
-      
+
       if (error.response?.data) {
-        // Handle validation errors from backend
         const backendErrors = error.response.data;
         if (typeof backendErrors === 'object') {
           const formattedErrors = {};
@@ -111,7 +100,7 @@ const handleSubmit = async (e) => {
           });
           setErrors(formattedErrors);
         }
-        
+
         if (error.response.status === 403) {
           toast.error('Only existing admins can create new admin accounts');
         } else if (error.response.status === 400) {
@@ -133,8 +122,7 @@ const handleSubmit = async (e) => {
       ...prev,
       [name]: value,
     }));
-    
-    // Clear error for this field when user starts typing
+
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
